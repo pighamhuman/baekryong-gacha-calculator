@@ -1,0 +1,741 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>백룡 수호석 가챠 계산기</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    :root {
+      --bg-primary: #0d1117;
+      --bg-secondary: #161b22;
+      --bg-tertiary: #21262d;
+      --bg-card: #1c2128;
+      --border: #30363d;
+      --text-primary: #e6edf3;
+      --text-secondary: #8b949e;
+      --text-muted: #6e7681;
+      --tier1: #FFD700;
+      --tier2: #C0C0C0;
+      --tier3: #CD7F32;
+      --tier4: #666666;
+      --success: #3fb950;
+      --warning: #d29922;
+      --danger: #f85149;
+      --accent: #58a6ff;
+      --auto-fixed: #f0883e;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      font-family: Pretendard, "Noto Sans KR", sans-serif;
+      font-size: 12px;
+      line-height: 1.45;
+    }
+    .mono, input, select, textarea, .num { font-family: D2Coding, Consolas, monospace; }
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+      background: rgba(13, 17, 23, 0.95);
+      backdrop-filter: blur(8px);
+    }
+    h1 { margin: 0; font-size: 18px; white-space: nowrap; }
+    h2 { margin: 0 0 8px; font-size: 14px; }
+    h3 { margin: 0; font-size: 13px; }
+    .header-actions, .slot-tabs, .button-row { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+    .status-pill {
+      padding: 5px 9px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: var(--bg-tertiary);
+      font-weight: 700;
+    }
+    .status-ok { color: var(--success); }
+    .status-warn { color: var(--warning); }
+    .status-danger { color: var(--danger); }
+    button, .file-label {
+      border: 1px solid var(--border);
+      background: var(--bg-tertiary);
+      color: var(--text-primary);
+      border-radius: 6px;
+      padding: 6px 8px;
+      cursor: pointer;
+      font-size: 12px;
+      user-select: none;
+    }
+    button:hover, .file-label:hover { border-color: var(--accent); color: var(--accent); }
+    button.active { background: rgba(88,166,255,0.16); border-color: var(--accent); color: var(--accent); }
+    button.danger { border-color: rgba(248,81,73,0.5); color: var(--danger); }
+    .app-grid {
+      display: grid;
+      grid-template-columns: 300px minmax(520px, 1fr) 360px;
+      gap: 12px;
+      padding: 12px;
+      align-items: start;
+    }
+    .panel { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+    .card {
+      border: 1px solid var(--border);
+      background: var(--bg-card);
+      border-radius: 10px;
+      padding: 12px;
+      min-width: 0;
+      box-shadow: 0 10px 24px rgba(0,0,0,0.12);
+    }
+    .right-panel { position: sticky; top: 64px; max-height: calc(100vh - 76px); overflow: auto; }
+    table { width: 100%; border-collapse: collapse; min-width: 0; }
+    th, td { border-bottom: 1px solid var(--border); padding: 5px 4px; vertical-align: middle; }
+    th { color: var(--text-secondary); font-weight: 700; text-align: left; background: rgba(33,38,45,0.55); position: sticky; top: 0; z-index: 1; }
+    tr:hover td { background: rgba(88,166,255,0.04); }
+    .table-wrap { overflow: auto; border: 1px solid var(--border); border-radius: 8px; }
+    input, select, textarea {
+      width: 100%;
+      min-width: 0;
+      border: 1px solid var(--border);
+      background: var(--bg-secondary);
+      color: var(--text-primary);
+      border-radius: 5px;
+      padding: 5px 6px;
+      font-size: 12px;
+      outline: none;
+    }
+    input:focus, select:focus, textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(88,166,255,0.18); }
+    input[type="checkbox"] { width: auto; accent-color: var(--accent); }
+    input[type="file"] { display: none; }
+    .percent-input, .suffix-input { display: grid; grid-template-columns: 1fr auto; gap: 4px; align-items: center; }
+    .suffix { color: var(--text-muted); font-family: D2Coding, Consolas, monospace; }
+    .metric-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+    .metric {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px;
+    }
+    .metric .label { color: var(--text-secondary); }
+    .metric .value { font-size: 15px; font-weight: 800; margin-top: 3px; }
+    .tier-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      padding: 9px 10px;
+      border: 1px solid var(--border);
+      border-radius: 8px 8px 0 0;
+      background: var(--bg-tertiary);
+    }
+    .tier-card { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; background: var(--bg-card); margin-bottom: 12px; }
+    .tier-card .table-wrap { border: 0; border-radius: 0; }
+    .tier-dot { display: inline-block; width: 8px; height: 8px; border-radius: 99px; margin-right: 5px; }
+    .small { font-size: 11px; color: var(--text-muted); }
+    .warn { color: var(--warning); }
+    .danger-text { color: var(--danger); }
+    .success { color: var(--success); }
+    .auto-fixed { border-color: var(--auto-fixed) !important; background: rgba(240,136,62,0.16) !important; color: #ffb77c !important; }
+    .auto-fixed-wrap { position: relative; }
+    .auto-fixed-wrap::after { content: "🔧"; position: absolute; right: 4px; top: 50%; transform: translateY(-50%); pointer-events: none; }
+    .danger-row td { background: rgba(248,81,73,0.10); }
+    .warn-row td { background: rgba(210,153,34,0.08); }
+    .list { margin: 0; padding-left: 18px; max-height: 160px; overflow: auto; }
+    .list li { margin: 3px 0; }
+    .bottom { padding: 0 12px 12px; }
+    .bottom-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .chart-box { height: 190px; }
+    .wide-table { min-width: 1050px; }
+    .option-name { min-width: 120px; }
+    .prob-col { min-width: 92px; }
+    .grade-col { min-width: 78px; }
+    .toast {
+      position: fixed;
+      right: 16px;
+      bottom: 16px;
+      z-index: 50;
+      display: none;
+      max-width: 360px;
+      padding: 10px 12px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--bg-tertiary);
+      box-shadow: 0 8px 30px rgba(0,0,0,0.35);
+    }
+    @media (max-width: 1199px) {
+      .app-grid { grid-template-columns: 320px minmax(0, 1fr); }
+      .right-panel { grid-column: 1 / -1; position: static; max-height: none; }
+      .bottom-grid { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 767px) {
+      header { align-items: flex-start; flex-direction: column; }
+      .app-grid { grid-template-columns: 1fr; padding: 8px; }
+      .metric-grid { grid-template-columns: 1fr; }
+      .card { padding: 10px; }
+      .bottom { padding: 0 8px 8px; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>백룡 수호석 가챠 계산기</h1>
+    <div class="header-actions">
+      <div class="slot-tabs" id="slotTabs"></div>
+      <span class="status-pill" id="globalStatus">검증 대기</span>
+      <button id="resetBtn" class="danger">초기화</button>
+    </div>
+  </header>
+
+  <main class="app-grid">
+    <section class="panel left-panel">
+      <div class="card"><h2>티어 확률</h2><div id="tierProbPanel"></div></div>
+      <div class="card"><h2>수치 등급 확률</h2><div id="gradeProbPanel"></div></div>
+      <div class="card"><h2>리롤 비용</h2><div id="rollCostPanel"></div></div>
+      <div class="card"><h2>돌파 비용 <span class="small">미확정</span></h2><div id="breakthroughPanel"></div></div>
+      <div class="card"><h2>검증 상태</h2><div id="validationPanel"></div></div>
+      <div class="card"><h2>경고 패널</h2><ul class="list" id="warningPanel"></ul></div>
+    </section>
+
+    <section class="panel center-panel">
+      <div class="card">
+        <h2>티어별 옵션 목록</h2>
+        <div id="optionsPanel"></div>
+      </div>
+    </section>
+
+    <section class="panel right-panel">
+      <div class="card"><h2>프리셋</h2><div class="button-row" id="presetPanel"></div></div>
+      <div class="card"><h2>슬롯별 목표 설정</h2><div id="slotTargetPanel"></div></div>
+      <div class="card"><h2>기대값 / 핵심 수치</h2><div id="expectedPanel"></div></div>
+      <div class="card"><h2>슬롯 전략 비교</h2><div class="small warn">동일 목표 p 기준 참고</div><div id="strategyPanel"></div></div>
+      <div class="card"><h2>BM 비교</h2><div id="bmPanel"></div><div class="chart-box"><canvas id="bmChart"></canvas></div></div>
+      <div class="card"><h2>역산 기능</h2><div id="reversePanel"></div></div>
+      <div class="card"><h2>N회 달성 확률</h2><div id="withinPanel"></div><div class="chart-box"><canvas id="probChart"></canvas></div></div>
+      <div class="card"><h2>슬롯별 기대비용 차트</h2><div class="chart-box"><canvas id="slotChart"></canvas></div></div>
+    </section>
+  </main>
+
+  <section class="bottom">
+    <div class="bottom-grid">
+      <div class="card"><h2>시뮬레이션 참고 검증</h2><div id="simulationPanel"></div></div>
+      <div class="card"><h2>저장 / 내보내기 / 공유</h2><div id="ioPanel"></div></div>
+    </div>
+  </section>
+  <div class="toast" id="toast"></div>
+
+<script>
+const INITIAL_DATA = {
+  tiers: [
+    { tier: 1, name: "1티어 (종결)", probability: 0.00005, color: "#FFD700", options: [
+      { id: 1, name: "파괴", type: "range", active: true, probability: 0.0000083, grades: { D: {min:1,max:2}, C: {min:1,max:3}, B: {min:2,max:5}, A: {min:3,max:7} }, ceiling: { min:9, max:29, ref:"절기 파괴의서 신물" } },
+      { id: 2, name: "마력", type: "range", active: true, probability: 0.0000083, grades: { D: {min:1,max:2}, C: {min:1,max:3}, B: {min:2,max:5}, A: {min:3,max:7} }, ceiling: { min:9, max:23, ref:"절기 마력의서 신물" } },
+      { id: 3, name: "도력", type: "range", active: true, probability: 0.0000083, grades: { D: {min:1,max:2}, C: {min:1,max:3}, B: {min:2,max:5}, A: {min:3,max:7} }, ceiling: { min:9, max:23, ref:"절기 도력의서 신물" } },
+      { id: 4, name: "행운", type: "fixed", active: true, probability: 0.0000017, grades: { D: {value:1}, C: {value:1}, B: {value:1}, A: {value:1} }, ceiling: { value:2, ref:"환 아이템 최고치" } },
+      { id: 5, name: "경험치증가%", type: "percent", active: true, probability: 0.0000017, grades: { D: {value:1}, C: {value:1}, B: {value:2}, A: {value:2} }, ceiling: { value:null, ref:"BM 잠식 기준" } },
+      { id: 6, name: "드롭율증가%", type: "percent", active: true, probability: 0.0000017, grades: { D: {value:1}, C: {value:1}, B: {value:2}, A: {value:2} }, ceiling: { value:null, ref:"BM 잠식 기준" } }
+    ]},
+    { tier: 2, name: "2티어 (고가치)", probability: 0.0005, color: "#C0C0C0", options: [
+      { id: 7, name: "공력", type: "range", active: true, probability: 0.0000417, grades: { D: {min:1,max:2}, C: {min:1,max:3}, B: {min:2,max:4}, A: {min:3,max:5} }, ceiling: { min:4, max:15, ref:"절기 공력의서 신물" } },
+      { id: 8, name: "치명타확률%", type: "percent", active: true, probability: 0.0000417, grades: { D: {value:0.3}, C: {min:0.3,max:0.5}, B: {value:0.5}, A: {min:0.5,max:0.7} }, ceiling: { value:2, ref:"도감 최고치" } },
+      { id: 9, name: "치명타피해%", type: "percent", active: true, probability: 0.0000417, grades: { D: {value:1}, C: {min:1,max:2}, B: {min:2,max:3}, A: {value:3} }, ceiling: { value:10, ref:"도감 최고치" } },
+      { id: 10, name: "백룡담촌 피해증가%", type: "percent", active: true, probability: 0.0000417, grades: { D: {value:3}, C: {min:3,max:5}, B: {min:5,max:8}, A: {min:8,max:15} }, ceiling: { value:48, ref:"곤륜수호석(대) 최대강화" } },
+      { id: 11, name: "체력회복%", type: "percent", active: true, probability: 0.0000417, grades: { D: {value:3}, C: {min:3,max:5}, B: {min:5,max:8}, A: {min:8,max:10} }, ceiling: { value:44, ref:"절기 육체의보단 신물" } },
+      { id: 12, name: "마력회복%", type: "percent", active: true, probability: 0.0000417, grades: { D: {value:3}, C: {min:3,max:5}, B: {min:5,max:6}, A: {min:6,max:7} }, ceiling: { value:22, ref:"절기 마성의보단 신물" } },
+      { id: 13, name: "중독저항", type: "fixed", active: true, probability: 0.0000417, grades: { D: {value:1}, C: {min:1,max:2}, B: {min:2,max:3}, A: {min:3,max:4} }, ceiling: { value:6, ref:"절기 집중의결정 신물" } },
+      { id: 14, name: "방어(AC)", type: "range", active: true, probability: 0.0000417, grades: { D: {min:1,max:2}, C: {min:1,max:2}, B: {min:1,max:3}, A: {min:2,max:3} }, ceiling: { min:0, max:11, ref:"절기 수호의결정 신물" } },
+      { id: 15, name: "마법방어(MAC)", type: "range", active: true, probability: 0.0000417, grades: { D: {min:1,max:2}, C: {min:1,max:2}, B: {min:1,max:3}, A: {min:2,max:3} }, ceiling: { min:0, max:11, ref:"절기 제마의결정 신물" } },
+      { id: 16, name: "공력피해증가%", type: "percent", active: true, probability: 0.0000417, grades: { D: {value:1}, C: {min:1,max:2}, B: {min:2,max:3}, A: {min:3,max:4} }, ceiling: { value:29.2, ref:"절기 금강의원석 신물" } },
+      { id: 17, name: "공력피해감소%", type: "percent", active: true, probability: 0.0000417, grades: { D: {value:1}, C: {min:1,max:2}, B: {min:2,max:3}, A: {min:3,max:4} }, ceiling: { value:29.2, ref:"절기 금강의원석 신물" } },
+      { id: 18, name: "마법저항", type: "fixed", active: true, probability: 0.0000417, grades: { D: {value:1}, C: {min:1,max:2}, B: {min:2,max:3}, A: {min:3,max:4} }, ceiling: { value:null, ref:"확인 필요" } }
+    ]},
+    { tier: 3, name: "3티어 (범용)", probability: 0.005, color: "#CD7F32", options: [
+      { id: 19, name: "공격속도", type: "fixed", active: true, probability: 0.001, grades: { D: {value:1}, C: {value:1}, B: {value:1}, A: {value:2} }, ceiling: { value:null, ref:"확인 필요" } },
+      { id: 20, name: "민첩", type: "fixed", active: true, probability: 0.001, grades: { D: {value:1}, C: {value:1}, B: {value:1}, A: {value:2} }, ceiling: { value:6, ref:"절기 회피의원석 신물" } },
+      { id: 21, name: "정확", type: "fixed", active: true, probability: 0.001, grades: { D: {value:1}, C: {value:1}, B: {value:1}, A: {value:2} }, ceiling: { value:6, ref:"절기 집중의결정 신물" } },
+      { id: 22, name: "백룡담촌 피해감소%", type: "percent", active: true, probability: 0.001, grades: { D: {value:1}, C: {min:1,max:2}, B: {min:2,max:3}, A: {min:3,max:4} }, ceiling: { value:13, ref:"곤륜수호석(대) 최대강화" } },
+      { id: 23, name: "중독회복", type: "fixed", active: true, probability: 0.001, grades: { D: {value:1}, C: {value:1}, B: {value:2}, A: {value:3} }, ceiling: { value:null, ref:"확인 필요" } }
+    ]},
+    { tier: 4, name: "4티어 (꽝)", probability: 0.99445, color: "#666666", options: [
+      { id: 24, name: "최대HP", type: "fixed", active: true, probability: 0.1105, grades: { D: {value:20}, C: {value:35}, B: {value:55}, A: {value:80} }, ceiling: { value:400, ref:"절기 육체의환단 신물" } },
+      { id: 25, name: "최대MP", type: "fixed", active: true, probability: 0.1105, grades: { D: {value:25}, C: {value:45}, B: {value:70}, A: {value:100} }, ceiling: { value:400, ref:"절기 마성의환단 신물" } },
+      { id: 26, name: "힘", type: "fixed", active: true, probability: 0.1105, grades: { D: {value:1}, C: {value:1}, B: {value:2}, A: {value:3} }, ceiling: { value:null, ref:"간접 스탯" } },
+      { id: 27, name: "지능", type: "fixed", active: true, probability: 0.1105, grades: { D: {value:1}, C: {value:1}, B: {value:2}, A: {value:3} }, ceiling: { value:null, ref:"간접 스탯" } },
+      { id: 28, name: "인내", type: "fixed", active: true, probability: 0.1105, grades: { D: {value:1}, C: {value:1}, B: {value:2}, A: {value:3} }, ceiling: { value:null, ref:"간접 스탯" } },
+      { id: 29, name: "의지", type: "fixed", active: true, probability: 0.1105, grades: { D: {value:1}, C: {value:1}, B: {value:2}, A: {value:3} }, ceiling: { value:null, ref:"간접 스탯" } },
+      { id: 30, name: "중독강화", type: "fixed", active: true, probability: 0.1105, grades: { D: {value:1}, C: {value:1}, B: {value:2}, A: {value:3} }, ceiling: { value:null, ref:"확인 필요" } },
+      { id: 31, name: "착용무게", type: "fixed", active: true, probability: 0.1105, grades: { D: {value:10}, C: {value:20}, B: {value:35}, A: {value:50} }, ceiling: { value:null, ref:"편의 옵션" } },
+      { id: 32, name: "가방무게", type: "fixed", active: true, probability: 0.11005, grades: { D: {value:20}, C: {value:40}, B: {value:70}, A: {value:100} }, ceiling: { value:null, ref:"편의 옵션" } }
+    ]}
+  ],
+  gradeProbabilities: { D: 0.60, C: 0.25, B: 0.12, A: 0.03 },
+  rollCosts: { lock0: 1100, lock1: 1500, lock2: 1900 },
+  breakthroughCosts: { stage3: 0, stage6: 0, stage10: 0 },
+  bmReferences: {
+    jeolgi_common: { name: "절기 보물 기대비용", value: 33000 },
+    jeolgi_rare: { name: "절기 성물 기대비용", value: 330000 },
+    hero_skill: { name: "영웅 무공 1등급 3개 기대비용", value: 2000000 }
+  }
+};
+const PRESETS = {
+  "준종결": { slot1: {tier:3, grade:"any"}, slot2: {tier:3, grade:"any"}, slot3: {tier:3, grade:"any"} },
+  "중급종결": { slot1: {tier:2, grade:"any"}, slot2: {tier:2, grade:"any"}, slot3: {tier:2, grade:"any"} },
+  "현실종결": { slot1: {tier:1, grade:"any"}, slot2: {tier:2, grade:"any"}, slot3: {tier:2, grade:"any"} },
+  "고과금": { slot1: {tier:1, grade:"any"}, slot2: {tier:1, grade:"any"}, slot3: {tier:1, grade:"any"} }
+};
+
+const STORAGE_PREFIX = "baekryong-gacha-v1";
+let state = null;
+let validation = { warnings: [], errors: [], fixes: [], fixedKeys: new Set(), optionIssues: new Map(), totals: {}, expectedRows: [], expectedTotal: null };
+let charts = {};
+let renderTimer = null;
+
+function deepClone(obj) { return JSON.parse(JSON.stringify(obj)); }
+function safeNumber(v) { const n = Number(String(v).replace(/,/g, '').replace('%', '').trim()); return Number.isFinite(n) ? n : null; }
+function fmt(n, digits = 2) { return Number.isFinite(n) ? n.toLocaleString('ko-KR', { maximumFractionDigits: digits }) : '계산 불가'; }
+function fmtInt(n) { return Number.isFinite(n) ? Math.round(n).toLocaleString('ko-KR') : '계산 불가'; }
+function fmtWon(n) { return Number.isFinite(n) ? `${Math.round(n).toLocaleString('ko-KR')}원` : '계산 불가'; }
+function pct(prob, digits = 6) { return Number.isFinite(prob) ? `${(prob * 100).toLocaleString('ko-KR', { maximumFractionDigits: digits })}%` : '계산 불가'; }
+function pctInput(prob) { return Number.isFinite(prob) ? Number((prob * 100).toFixed(8)) : ''; }
+function fromPctText(v) { const n = safeNumber(v); return n === null ? null : n / 100; }
+function sum(arr) { return arr.reduce((a, b) => a + (Number.isFinite(b) ? b : 0), 0); }
+function nearly(a, b, eps = 1e-10) { return Math.abs(a - b) <= eps; }
+function getTier(tierNo) { return state.tiers.find(t => Number(t.tier) === Number(tierNo)); }
+function escapeHtml(str) { return String(str ?? '').replace(/[&<>"]/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[s])); }
+function toast(msg, kind = 'info') { const el = document.getElementById('toast'); el.textContent = msg; el.style.display = 'block'; el.style.borderColor = kind === 'danger' ? 'var(--danger)' : kind === 'warn' ? 'var(--warning)' : 'var(--border)'; clearTimeout(el._t); el._t = setTimeout(() => el.style.display = 'none', 2600); }
+function fixedClass(key) { return validation.fixedKeys.has(key) ? 'auto-fixed' : ''; }
+function fixedWrap(key) { return validation.fixedKeys.has(key) ? 'auto-fixed-wrap' : ''; }
+function debounceRender() { clearTimeout(renderTimer); renderTimer = setTimeout(() => render(), 300); }
+
+function defaultState() {
+  return {
+    ...deepClone(INITIAL_DATA),
+    selectedPreset: "현실종결",
+    currentSaveSlot: "A",
+    slotTargets: deepClone(PRESETS["현실종결"]),
+    reverse: { targetTotalCost: 330000, grade: "any" },
+    withinN: 1000,
+    collapsedTiers: {},
+    simulation: null,
+    lastJsonBackup: null
+  };
+}
+
+function calcExpectedByP(p, cost) {
+  if (p <= 0 || p > 1 || !Number.isFinite(p) || !Number.isFinite(cost)) return null;
+  const expectedTries = 1 / p;
+  const median = Math.ceil(Math.log(0.5) / Math.log(1 - p));
+  const p90 = Math.ceil(Math.log(0.1) / Math.log(1 - p));
+  const probWithinN = (n) => 1 - Math.pow(1 - p, n);
+  return { p, expectedTries, expectedCost: expectedTries * cost, median, p90, probWithinN };
+}
+function calcReverse(targetTotalCost, gradeProb, costs) {
+  if (!(targetTotalCost > 0) || !(gradeProb > 0)) return null;
+  const totalCostPerTry = costs.lock0 + costs.lock1 + costs.lock2;
+  const requiredP = totalCostPerTry / targetTotalCost;
+  const requiredTierProb = requiredP / gradeProb;
+  const reCalcCost = (1 / requiredP) * totalCostPerTry;
+  const diff = Math.abs(reCalcCost - targetTotalCost) / targetTotalCost;
+  const valid = diff < 0.001;
+  return { requiredTierProb, requiredP, valid, diff };
+}
+function calcTripleMax(option) {
+  const aGrade = option.grades.A;
+  if (!aGrade) return null;
+  if (option.type === "range") return { min: aGrade.min * 3, max: aGrade.max * 3 };
+  if (typeof aGrade.value === "number") return { value: aGrade.value * 3 };
+  if (typeof aGrade.max === "number") return { value: aGrade.max * 3 };
+  return null;
+}
+function calcStrategies(p, costs) {
+  if (p <= 0 || p > 1 || !Number.isFinite(p)) return null;
+  const stratA = { name: "전략A: 순차 잠금", slot1: (1 / p) * costs.lock0, slot2: (1 / p) * costs.lock1, slot3: (1 / p) * costs.lock2 };
+  stratA.total = stratA.slot1 + stratA.slot2 + stratA.slot3;
+  const stratB = { name: "전략B: 일괄 리롤", total: (1 / Math.pow(p, 3)) * costs.lock0 };
+  const stratC = { name: "전략C: 슬롯1만 잠금", slot1: (1 / p) * costs.lock0, slot23: (1 / Math.pow(p, 2)) * costs.lock1 };
+  stratC.total = stratC.slot1 + stratC.slot23;
+  return { stratA, stratB, stratC };
+}
+function selfValidate(p) {
+  if (p <= 0 || p >= 1 || !Number.isFinite(p)) return { valid: false };
+  const expectedTries = 1 / p;
+  const median1 = Math.ceil(Math.log(0.5) / Math.log(1 - p));
+  const median2 = Math.ceil(expectedTries * Math.log(2));
+  const p90_1 = Math.ceil(Math.log(0.1) / Math.log(1 - p));
+  const p90_2 = Math.ceil(expectedTries * Math.log(10));
+  return { valid: true, medianOk: Math.abs(median1 - median2) <= 1, p90Ok: Math.abs(p90_1 - p90_2) <= 1, median: median1, p90: p90_1 };
+}
+function simulate(p, n = 500000) {
+  if (!(p > 0 && p < 1)) return null;
+  let totalTries = 0;
+  const logFail = Math.log(1 - p);
+  for (let i = 0; i < n; i++) {
+    const u = Math.random();
+    const tries = Math.ceil(Math.log(1 - u) / logFail);
+    totalTries += tries;
+  }
+  const simAvg = totalTries / n;
+  const theoreticalAvg = 1 / p;
+  const diff = Math.abs(simAvg - theoreticalAvg) / theoreticalAvg;
+  return { simAvg, theoreticalAvg, diff, pass: diff <= 0.05 };
+}
+
+function gradeToText(g, type) {
+  if (!g) return '';
+  const s = typeof g.value === 'number' ? String(g.value) : `${g.min ?? ''}~${g.max ?? ''}`;
+  return type === 'percent' ? `${s}%` : s;
+}
+function parseGrade(text, type) {
+  const raw = String(text ?? '').replace(/%/g, '').trim();
+  if (!raw) return { value: null, error: '빈 수치' };
+  if (raw.includes('~')) {
+    const [a, b] = raw.split('~').map(safeNumber);
+    if (a === null || b === null) return { value: null, error: '숫자로 변환 불가' };
+    if (a > b) return { value: { min: a, max: b }, error: 'min > max' };
+    return { value: { min: a, max: b }, error: null };
+  }
+  const n = safeNumber(raw);
+  if (n === null) return { value: null, error: '숫자로 변환 불가' };
+  return { value: { value: n }, error: null };
+}
+function ceilingToText(c, type) {
+  if (!c || c.value === null) return '';
+  const v = typeof c.value === 'number' ? String(c.value) : `${c.min ?? ''}~${c.max ?? ''}`;
+  return type === 'percent' ? `${v}%` : v;
+}
+function parseCeiling(text, type, oldRef) {
+  const raw = String(text ?? '').replace(/%/g, '').trim();
+  if (!raw) return { value: { value: null, ref: oldRef || '확인 필요' }, error: null };
+  if (raw.includes('~')) {
+    const [a, b] = raw.split('~').map(safeNumber);
+    if (a === null || b === null) return { value: null, error: '상한 숫자 변환 불가' };
+    if (a > b) return { value: { min: a, max: b, ref: oldRef || '' }, error: '상한 min > max' };
+    return { value: { min: a, max: b, ref: oldRef || '' }, error: null };
+  }
+  const n = safeNumber(raw);
+  if (n === null) return { value: null, error: '상한 숫자 변환 불가' };
+  return { value: { value: n, ref: oldRef || '' }, error: null };
+}
+function tripleToText(t, type) {
+  if (!t) return '계산 불가';
+  const v = typeof t.value === 'number' ? fmt(t.value, 4) : `${fmt(t.min, 4)}~${fmt(t.max, 4)}`;
+  return type === 'percent' ? `${v}%` : v;
+}
+function compareCeiling(option) {
+  const t = calcTripleMax(option);
+  const c = option.ceiling || {};
+  if (!t) return { level: 'warn', text: '계산 불가' };
+  if (c.value === null || (!('value' in c) && !('min' in c) && !('max' in c))) return { level: 'warn', text: c.ref || '상한 미정' };
+  let exceed = false;
+  if (typeof c.value === 'number') {
+    const value = typeof t.value === 'number' ? t.value : t.max;
+    exceed = value > c.value;
+    return { level: exceed ? 'danger' : 'ok', text: `${exceed ? '초과' : 'OK'} / ${fmt(c.value, 4)}${option.type === 'percent' ? '%' : ''}` };
+  }
+  if (typeof c.max === 'number') {
+    exceed = (t.max ?? t.value) > c.max || (typeof c.min === 'number' && (t.min ?? t.value) < c.min);
+    return { level: exceed ? 'danger' : 'ok', text: `${exceed ? '초과' : 'OK'} / ${fmt(c.min,4)}~${fmt(c.max,4)}${option.type === 'percent' ? '%' : ''}` };
+  }
+  return { level: 'warn', text: c.ref || '상한 미정' };
+}
+
+function validateAndFix() {
+  validation = { warnings: [], errors: [], fixes: [], fixedKeys: new Set(), optionIssues: new Map(), totals: {}, expectedRows: [], expectedTotal: null };
+  const warn = msg => validation.warnings.push(msg);
+  const err = msg => validation.errors.push(msg);
+  const fix = (key, msg) => { validation.fixedKeys.add(key); validation.fixes.push(msg); };
+
+  state.tiers.forEach(t => {
+    if (!Number.isFinite(t.probability)) err(`${t.name} 확률이 숫자가 아닙니다.`);
+    if (t.probability < 0) err(`${t.name} 확률이 음수입니다.`);
+    if (t.probability > 1) err(`${t.name} 확률이 100%를 초과합니다.`);
+  });
+  const t123 = sum(state.tiers.filter(t => t.tier < 4).map(t => t.probability));
+  const t4 = getTier(4);
+  const newT4 = Math.max(0, 1 - t123);
+  if (!nearly(t4.probability, newT4)) {
+    t4.probability = newT4;
+    fix('tier-4-prob', `4티어 확률을 ${pct(newT4)}로 자동 보정했습니다.`);
+    if (1 - t123 < 0) err('1~3티어 합계가 100%를 초과하여 4티어를 0%로 보정했습니다.');
+  }
+  if (getTier(1).probability > 0.0005) warn('1티어 확률이 0.05%를 초과했습니다.');
+
+  ['D','C','B','A'].forEach(g => {
+    const p = state.gradeProbabilities[g];
+    if (!Number.isFinite(p)) err(`${g}등급 확률이 숫자가 아닙니다.`);
+    if (p < 0) err(`${g}등급 확률이 음수입니다.`);
+    if (p > 1) err(`${g}등급 확률이 100%를 초과합니다.`);
+  });
+  const cba = sum(['C','B','A'].map(g => state.gradeProbabilities[g]));
+  const newD = Math.max(0, 1 - cba);
+  if (!nearly(state.gradeProbabilities.D, newD)) {
+    state.gradeProbabilities.D = newD;
+    fix('grade-D-prob', `D등급 확률을 ${pct(newD, 4)}로 자동 보정했습니다.`);
+    if (1 - cba < 0) err('C/B/A 등급 합계가 100%를 초과하여 D등급을 0%로 보정했습니다.');
+  }
+  if (state.gradeProbabilities.A > 0.1) warn('A등급 확률이 10%를 초과했습니다.');
+
+  state.tiers.forEach(t => {
+    const active = t.options.filter(o => o.active);
+    if (active.length) {
+      const last = active[active.length - 1];
+      const rest = sum(active.slice(0, -1).map(o => o.probability));
+      const corrected = Math.max(0, t.probability - rest);
+      if (!nearly(last.probability, corrected, 1e-12)) {
+        last.probability = corrected;
+        fix(`option-${last.id}-prob`, `${t.name} 마지막 활성 옵션(${last.name || last.id}) 확률을 ${pct(corrected)}로 자동 보정했습니다.`);
+        warn(`${t.name} 옵션 확률 자동 보정 발생`);
+        if (t.probability - rest < 0) err(`${t.name} 옵션 확률 합계가 티어 확률을 초과했습니다.`);
+      }
+    }
+    const optSum = sum(active.map(o => o.probability));
+    validation.totals[`tier-${t.tier}-opt-sum`] = optSum;
+    t.options.forEach(o => {
+      const issues = [];
+      if (!Number.isFinite(o.probability)) issues.push('옵션 확률 숫자 오류');
+      if (o.probability < 0) issues.push('옵션 확률 음수');
+      if (o.probability > 1) issues.push('옵션 확률 100% 초과');
+      ['D','C','B','A'].forEach(g => {
+        const gd = o.grades[g];
+        if (!gd) issues.push(`${g} 수치 없음`);
+        else {
+          if ('value' in gd && !Number.isFinite(gd.value)) issues.push(`${g} 숫자 오류`);
+          if ('min' in gd && !Number.isFinite(gd.min)) issues.push(`${g} min 숫자 오류`);
+          if ('max' in gd && !Number.isFinite(gd.max)) issues.push(`${g} max 숫자 오류`);
+          if (Number.isFinite(gd.min) && Number.isFinite(gd.max) && gd.min > gd.max) issues.push(`${g} min > max`);
+        }
+      });
+      const cmp = compareCeiling(o);
+      if (cmp.level === 'danger') issues.push('3중복 최대값 상한 초과');
+      if (cmp.level === 'warn') issues.push(`상한 미정: ${o.ceiling?.ref || '확인 필요'}`);
+      if (issues.length) validation.optionIssues.set(o.id, issues);
+    });
+  });
+
+  validation.optionIssues.forEach((issues, id) => {
+    issues.forEach(i => (i.includes('초과') || i.includes('숫자') || i.includes('min > max')) ? err(`옵션 #${id}: ${i}`) : warn(`옵션 #${id}: ${i}`));
+  });
+
+  const costs = [state.rollCosts.lock0, state.rollCosts.lock1, state.rollCosts.lock2];
+  Object.entries(state.rollCosts).forEach(([k, v]) => { if (!Number.isFinite(v) || v < 0) err(`${k} 리롤 비용 오류`); });
+  validation.expectedRows = ['slot1','slot2','slot3'].map((key, i) => {
+    const target = state.slotTargets[key];
+    const tier = getTier(target.tier);
+    const gradeProb = target.grade === 'any' ? 1 : state.gradeProbabilities[target.grade];
+    const p = tier ? tier.probability * gradeProb : 0;
+    const res = calcExpectedByP(p, costs[i]);
+    if (!res) err(`${key} 목표 확률 계산 불가`);
+    return { key, label: `슬롯${i+1}`, tier: target.tier, grade: target.grade, cost: costs[i], p, res };
+  });
+  const validCosts = validation.expectedRows.map(r => r.res?.expectedCost).filter(Number.isFinite);
+  validation.expectedTotal = validCosts.length === 3 ? sum(validCosts) : null;
+  if (validation.expectedTotal) {
+    Object.values(state.bmReferences).forEach(bm => {
+      if (validation.expectedTotal < bm.value * 0.3) warn(`기대비용이 ${bm.name}의 30% 미만입니다.`);
+    });
+  }
+  const rev = currentReverse();
+  if (rev && rev.requiredTierProb < 0.00005) warn('역산 결과 필요 티어 확률이 0.005% 미만입니다.');
+}
+
+function currentReverse() {
+  const gp = state.reverse.grade === 'any' ? 1 : state.gradeProbabilities[state.reverse.grade];
+  return calcReverse(state.reverse.targetTotalCost, gp, state.rollCosts);
+}
+function autoSaveLast() {
+  try { localStorage.setItem(`${STORAGE_PREFIX}:last`, JSON.stringify(state)); }
+  catch (e) { validation.errors.push('localStorage 자동 저장 실패'); }
+}
+function render() {
+  validateAndFix();
+  renderHeader(); renderLeft(); renderOptions(); renderRight(); renderBottom(); renderCharts(); autoSaveLast();
+}
+
+function renderHeader() {
+  document.getElementById('slotTabs').innerHTML = ['A','B','C'].map(s => `<button class="${state.currentSaveSlot === s ? 'active' : ''}" data-action="select-save-slot" data-slot="${s}">슬롯 ${s}</button>`).join('');
+  const st = document.getElementById('globalStatus');
+  st.className = 'status-pill ' + (validation.errors.length ? 'status-danger' : validation.warnings.length ? 'status-warn' : 'status-ok');
+  st.textContent = validation.errors.length ? `오류 ${validation.errors.length} / 경고 ${validation.warnings.length}` : validation.warnings.length ? `경고 ${validation.warnings.length}` : '검증 정상';
+}
+function probInput(value, key, path, disabled = false) {
+  return `<div class="percent-input ${fixedWrap(key)}"><input class="mono ${fixedClass(key)}" ${disabled ? 'disabled' : ''} value="${pctInput(value)}" data-path="${path}" data-type="percent"><span class="suffix">%</span></div>`;
+}
+function moneyInput(value, path) { return `<input class="mono" value="${escapeHtml(value)}" data-path="${path}" data-type="number">`; }
+function renderLeft() {
+  const tierRows = state.tiers.map((t, i) => `<tr><td><span class="tier-dot" style="background:${t.color}"></span>${t.tier}T</td><td><input value="${escapeHtml(t.name)}" data-path="tiers.${i}.name"></td><td>${probInput(t.probability, `tier-${t.tier}-prob`, `tiers.${i}.probability`, t.tier === 4)}</td></tr>`).join('');
+  document.getElementById('tierProbPanel').innerHTML = `<div class="table-wrap"><table><tbody>${tierRows}</tbody><tfoot><tr><td colspan="2">합계</td><td class="mono">${pct(sum(state.tiers.map(t=>t.probability)), 6)}</td></tr></tfoot></table></div>`;
+  const gradeRows = ['D','C','B','A'].map(g => `<tr><td>${g}</td><td>${probInput(state.gradeProbabilities[g], `grade-${g}-prob`, `gradeProbabilities.${g}`, g === 'D')}</td></tr>`).join('');
+  document.getElementById('gradeProbPanel').innerHTML = `<div class="table-wrap"><table><tbody>${gradeRows}</tbody><tfoot><tr><td>합계</td><td class="mono">${pct(sum(Object.values(state.gradeProbabilities)), 4)}</td></tr></tfoot></table></div>`;
+  document.getElementById('rollCostPanel').innerHTML = `<div class="table-wrap"><table><tbody><tr><td>잠금 0개</td><td>${moneyInput(state.rollCosts.lock0, 'rollCosts.lock0')}</td></tr><tr><td>잠금 1개</td><td>${moneyInput(state.rollCosts.lock1, 'rollCosts.lock1')}</td></tr><tr><td>잠금 2개</td><td>${moneyInput(state.rollCosts.lock2, 'rollCosts.lock2')}</td></tr></tbody></table></div>`;
+  document.getElementById('breakthroughPanel').innerHTML = `<div class="small warn">돌파 비용은 기본값 0이며 미확정 설계값입니다.</div><div class="table-wrap"><table><tbody><tr><td>3단계</td><td>${moneyInput(state.breakthroughCosts.stage3, 'breakthroughCosts.stage3')}</td></tr><tr><td>6단계</td><td>${moneyInput(state.breakthroughCosts.stage6, 'breakthroughCosts.stage6')}</td></tr><tr><td>10단계</td><td>${moneyInput(state.breakthroughCosts.stage10, 'breakthroughCosts.stage10')}</td></tr></tbody></table></div>`;
+  document.getElementById('validationPanel').innerHTML = `<div class="metric-grid"><div class="metric"><div class="label">자동 보정</div><div class="value warn">${validation.fixes.length}</div></div><div class="metric"><div class="label">경고</div><div class="value warn">${validation.warnings.length}</div></div><div class="metric"><div class="label">오류</div><div class="value danger-text">${validation.errors.length}</div></div><div class="metric"><div class="label">상태</div><div class="value ${validation.errors.length ? 'danger-text' : validation.warnings.length ? 'warn' : 'success'}">${validation.errors.length ? 'ERROR' : validation.warnings.length ? 'WARN' : 'PASS'}</div></div></div><ul class="list">${validation.fixes.map(x=>`<li class="warn">🔧 ${escapeHtml(x)}</li>`).join('')}${validation.errors.map(x=>`<li class="danger-text">⛔ ${escapeHtml(x)}</li>`).join('')}</ul>`;
+  document.getElementById('warningPanel').innerHTML = validation.warnings.length ? validation.warnings.map(w => `<li class="warn">⚠ ${escapeHtml(w)}</li>`).join('') : '<li class="success">경고 없음</li>';
+}
+function renderOptions() {
+  document.getElementById('optionsPanel').innerHTML = state.tiers.map((t, ti) => {
+    const activeCount = t.options.filter(o => o.active).length;
+    const optSum = validation.totals[`tier-${t.tier}-opt-sum`] || 0;
+    const collapsed = state.collapsedTiers[t.tier];
+    const rows = t.options.map((o, oi) => optionRow(t, ti, o, oi)).join('');
+    return `<div class="tier-card"><div class="tier-head"><div><h3><span class="tier-dot" style="background:${t.color}"></span>${escapeHtml(t.name)}</h3><div class="small">티어 확률 ${pct(t.probability)} · 활성 ${activeCount}개 · 옵션 합계 ${pct(optSum)}</div></div><button data-action="toggle-tier" data-tier="${t.tier}">${collapsed ? '펼치기' : '접기'}</button></div>${collapsed ? '' : `<div class="table-wrap"><table class="wide-table"><thead><tr><th>ON</th><th>옵션명</th><th>개별 확률</th><th>타입</th><th>D</th><th>C</th><th>B</th><th>A</th><th>3중복 최대</th><th>상한 비교</th><th>상한 수치</th><th>상한 기준명</th><th>티어 이동</th><th>삭제</th></tr></thead><tbody>${rows}</tbody></table></div><div style="padding:8px"><button data-action="add-option" data-tier="${t.tier}">+ 옵션 추가</button></div>`}</div>`;
+  }).join('');
+}
+function optionRow(t, ti, o, oi) {
+  const cmp = compareCeiling(o);
+  const issues = validation.optionIssues.get(o.id) || [];
+  const rowCls = cmp.level === 'danger' ? 'danger-row' : issues.length ? 'warn-row' : '';
+  const tierOptions = state.tiers.map(tt => `<option value="${tt.tier}" ${tt.tier === t.tier ? 'selected' : ''}>${tt.tier}T</option>`).join('');
+  return `<tr class="${rowCls}"><td><input type="checkbox" ${o.active ? 'checked' : ''} data-path="tiers.${ti}.options.${oi}.active" data-type="checkbox"></td><td><input class="option-name" value="${escapeHtml(o.name)}" data-path="tiers.${ti}.options.${oi}.name"></td><td>${probInput(o.probability, `option-${o.id}-prob`, `tiers.${ti}.options.${oi}.probability`)}</td><td><select data-path="tiers.${ti}.options.${oi}.type"><option value="range" ${o.type==='range'?'selected':''}>range</option><option value="fixed" ${o.type==='fixed'?'selected':''}>fixed</option><option value="percent" ${o.type==='percent'?'selected':''}>percent</option></select></td>${['D','C','B','A'].map(g => `<td><input class="grade-col" value="${escapeHtml(gradeToText(o.grades[g], o.type))}" data-action="grade-edit" data-tier-index="${ti}" data-option-index="${oi}" data-grade="${g}"></td>`).join('')}<td class="mono">${tripleToText(calcTripleMax(o), o.type)}</td><td class="${cmp.level === 'danger' ? 'danger-text' : cmp.level === 'warn' ? 'warn' : 'success'}">${escapeHtml(cmp.text)}</td><td><input value="${escapeHtml(ceilingToText(o.ceiling, o.type))}" data-action="ceiling-edit" data-tier-index="${ti}" data-option-index="${oi}"></td><td><input value="${escapeHtml(o.ceiling?.ref || '')}" data-path="tiers.${ti}.options.${oi}.ceiling.ref"></td><td><select data-action="move-option" data-tier-index="${ti}" data-option-index="${oi}">${tierOptions}</select></td><td><button class="danger" data-action="delete-option" data-tier-index="${ti}" data-option-index="${oi}">삭제</button></td></tr>`;
+}
+function renderRight() {
+  document.getElementById('presetPanel').innerHTML = Object.keys(PRESETS).concat('직접설정').map(p => `<button class="${state.selectedPreset === p ? 'active' : ''}" data-action="preset" data-preset="${p}">${p}</button>`).join('');
+  document.getElementById('slotTargetPanel').innerHTML = `<div class="table-wrap"><table><thead><tr><th>슬롯</th><th>티어</th><th>등급</th></tr></thead><tbody>${['slot1','slot2','slot3'].map((k,i) => `<tr><td>슬롯${i+1}</td><td><select data-path="slotTargets.${k}.tier" data-type="number">${state.tiers.map(t=>`<option value="${t.tier}" ${state.slotTargets[k].tier==t.tier?'selected':''}>${t.tier}T</option>`).join('')}</select></td><td><select data-path="slotTargets.${k}.grade">${['any','D','C','B','A'].map(g=>`<option value="${g}" ${state.slotTargets[k].grade===g?'selected':''}>${g}</option>`).join('')}</select></td></tr>`).join('')}</tbody></table></div>`;
+  const rows = validation.expectedRows;
+  document.getElementById('expectedPanel').innerHTML = `<div class="metric"><div class="label">슬롯1~3 기대비용 합계</div><div class="value num">${fmtWon(validation.expectedTotal)}</div></div><div class="table-wrap" style="margin-top:8px"><table><thead><tr><th>슬롯</th><th>목표확률</th><th>기대횟수</th><th>기대비용</th><th>중앙값</th><th>90%값</th></tr></thead><tbody>${rows.map(r => `<tr><td>${r.label}</td><td class="mono">${pct(r.p)}</td><td class="mono">${fmt(r.res?.expectedTries,2)}</td><td class="mono">${fmtWon(r.res?.expectedCost)}</td><td class="mono">${fmtInt(r.res?.median)}</td><td class="mono">${fmtInt(r.res?.p90)}</td></tr>`).join('')}</tbody></table></div>`;
+  const baseP = rows[0]?.p || 0;
+  const strategies = calcStrategies(baseP, state.rollCosts);
+  document.getElementById('strategyPanel').innerHTML = strategies ? `<div class="table-wrap"><table><tbody><tr><td>${strategies.stratA.name}</td><td class="mono">${fmtWon(strategies.stratA.total)}</td></tr><tr><td>${strategies.stratB.name}</td><td class="mono">${fmtWon(strategies.stratB.total)}</td></tr><tr><td>${strategies.stratC.name}</td><td class="mono">${fmtWon(strategies.stratC.total)}</td></tr></tbody></table></div>` : '<div class="danger-text">계산 불가</div>';
+  document.getElementById('bmPanel').innerHTML = `<div class="table-wrap"><table><thead><tr><th>BM</th><th>현재/BM</th><th>BM/현재</th></tr></thead><tbody>${Object.values(state.bmReferences).map(bm => { const total = validation.expectedTotal; const a = total ? total / bm.value : null; const b = total ? bm.value / total * 100 : null; const cls = total && total < bm.value * 0.3 ? 'warn' : ''; return `<tr class="${cls}"><td>${escapeHtml(bm.name)}<br><span class="small">${fmtWon(bm.value)}</span></td><td class="mono">${fmt(a,2)}배</td><td class="mono">${fmt(b,2)}%</td></tr>`; }).join('')}</tbody></table></div>`;
+  const rev = currentReverse();
+  document.getElementById('reversePanel').innerHTML = `<div class="table-wrap"><table><tbody><tr><td>목표 총 기대비용</td><td>${moneyInput(state.reverse.targetTotalCost, 'reverse.targetTotalCost')}</td></tr><tr><td>기준 등급</td><td><select data-path="reverse.grade">${['any','D','C','B','A'].map(g=>`<option value="${g}" ${state.reverse.grade===g?'selected':''}>${g}</option>`).join('')}</select></td></tr><tr><td>필요 합산 확률</td><td class="mono">${pct(rev?.requiredP)}</td></tr><tr><td>필요 티어 확률</td><td class="mono ${rev && rev.requiredTierProb < 0.00005 ? 'warn' : ''}">${pct(rev?.requiredTierProb)}</td></tr><tr><td>오차 검증</td><td class="${rev?.valid ? 'success' : 'danger-text'}">${rev ? (rev.valid ? 'PASS' : `FAIL (${fmt(rev.diff*100,4)}%)`) : '계산 불가'}</td></tr></tbody></table></div>`;
+  const n = state.withinN;
+  document.getElementById('withinPanel').innerHTML = `<div class="suffix-input"><input class="mono" value="${escapeHtml(n)}" data-path="withinN" data-type="number"><span class="suffix">회</span></div><div class="table-wrap" style="margin-top:8px"><table><tbody>${rows.map(r => `<tr><td>${r.label}</td><td class="mono">${r.res ? pct(r.res.probWithinN(n), 4) : '계산 불가'}</td></tr>`).join('')}</tbody></table></div>`;
+}
+function renderBottom() {
+  const sv = selfValidate(validation.expectedRows[0]?.p || 0);
+  const sim = state.simulation;
+  document.getElementById('simulationPanel').innerHTML = `<div class="button-row"><button data-action="simulate">시뮬레이션 실행</button><span class="small">기본 50만회 · 슬롯1 p 기준</span></div><div class="table-wrap" style="margin-top:8px"><table><tbody><tr><td>자가 검증 중앙값</td><td class="${sv.medianOk ? 'success' : 'danger-text'}">${sv.valid ? (sv.medianOk ? 'PASS' : 'FAIL') : '계산 불가'} / ${fmtInt(sv.median)}</td></tr><tr><td>자가 검증 90%값</td><td class="${sv.p90Ok ? 'success' : 'danger-text'}">${sv.valid ? (sv.p90Ok ? 'PASS' : 'FAIL') : '계산 불가'} / ${fmtInt(sv.p90)}</td></tr><tr><td>시뮬레이션 평균</td><td class="mono">${sim ? fmt(sim.simAvg,2) : '미실행'}</td></tr><tr><td>이론 평균</td><td class="mono">${sim ? fmt(sim.theoreticalAvg,2) : '미실행'}</td></tr><tr><td>오차율</td><td class="${sim?.pass ? 'success' : 'warn'}">${sim ? `${fmt(sim.diff*100,3)}% / ${sim.pass ? 'PASS' : 'FAIL'}` : '미실행'}</td></tr></tbody></table></div>`;
+  document.getElementById('ioPanel').innerHTML = `<div class="button-row"><button data-action="save-slot">현재 슬롯 저장</button><button data-action="load-slot">현재 슬롯 불러오기</button><button data-action="export-csv">CSV 내보내기</button><button data-action="export-json">JSON 내보내기</button><label class="file-label">JSON 불러오기<input type="file" accept="application/json" data-action="import-json"></label><button data-action="share-url">공유 URL 복사</button></div><div class="small" style="margin-top:8px">저장 대상: tiers, gradeProbabilities, rollCosts, breakthroughCosts, bmReferences, selectedPreset, slotTargets</div>`;
+}
+function renderCharts() {
+  if (typeof Chart === 'undefined') return;
+  const chartDefaults = { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: '#e6edf3', font: { size: 10 } } } }, scales: { x: { ticks: { color: '#8b949e' }, grid: { color: '#30363d' } }, y: { ticks: { color: '#8b949e' }, grid: { color: '#30363d' } } } };
+  const total = validation.expectedTotal || 0;
+  upsertChart('bmChart', 'bar', { labels: ['현재 합계', ...Object.values(state.bmReferences).map(b=>b.name)], datasets: [{ label: '기대비용', data: [total, ...Object.values(state.bmReferences).map(b=>b.value)], backgroundColor: ['#58a6ff', '#3fb950', '#d29922', '#f85149'] }] }, chartDefaults);
+  upsertChart('slotChart', 'bar', { labels: validation.expectedRows.map(r=>r.label), datasets: [{ label: '슬롯별 기대비용', data: validation.expectedRows.map(r=>r.res?.expectedCost || 0), backgroundColor: ['#FFD700','#C0C0C0','#CD7F32'] }] }, chartDefaults);
+  const p = validation.expectedRows[0]?.p || 0; const maxN = Math.max(10, Number(state.withinN) || 1000); const labels = Array.from({length: 10}, (_,i)=>Math.round((i+1)*maxN/10));
+  upsertChart('probChart', 'line', { labels, datasets: [{ label: '슬롯1 달성 확률', data: labels.map(n => p > 0 ? (1 - Math.pow(1-p,n))*100 : 0), borderColor: '#58a6ff', backgroundColor: 'rgba(88,166,255,.15)', tension: .25 }] }, chartDefaults);
+}
+function upsertChart(id, type, data, options) {
+  const ctx = document.getElementById(id); if (!ctx) return;
+  if (charts[id]) { charts[id].data = data; charts[id].update('none'); return; }
+  charts[id] = new Chart(ctx, { type, data, options });
+}
+
+function setByPath(path, value) {
+  const parts = path.split('.'); let obj = state;
+  for (let i = 0; i < parts.length - 1; i++) obj = obj[parts[i]];
+  obj[parts[parts.length - 1]] = value;
+}
+function handleInput(el) {
+  const path = el.dataset.path;
+  if (!path) return;
+  let value = el.value;
+  if (el.dataset.type === 'checkbox') value = el.checked;
+  else if (el.dataset.type === 'percent') value = fromPctText(el.value);
+  else if (el.dataset.type === 'number') value = safeNumber(el.value);
+  if ((el.dataset.type === 'percent' || el.dataset.type === 'number') && value === null) validation.errors.push('숫자가 아닌 값 입력');
+  else setByPath(path, value);
+  if (path.startsWith('slotTargets')) state.selectedPreset = '직접설정';
+  debounceRender();
+}
+function saveToSlot() {
+  try { localStorage.setItem(`${STORAGE_PREFIX}:slot:${state.currentSaveSlot}`, JSON.stringify(state)); toast(`슬롯 ${state.currentSaveSlot} 저장 완료`); }
+  catch (e) { toast('localStorage 저장 실패', 'danger'); }
+}
+function loadFromSlot() {
+  try {
+    const raw = localStorage.getItem(`${STORAGE_PREFIX}:slot:${state.currentSaveSlot}`);
+    if (!raw) return toast(`슬롯 ${state.currentSaveSlot} 저장 데이터 없음`, 'warn');
+    state = normalizeState(JSON.parse(raw)); render(); toast(`슬롯 ${state.currentSaveSlot} 불러오기 완료`);
+  } catch (e) { toast('localStorage 불러오기 실패', 'danger'); }
+}
+function normalizeState(s) { return { ...defaultState(), ...s, tiers: s.tiers || deepClone(INITIAL_DATA.tiers), gradeProbabilities: s.gradeProbabilities || deepClone(INITIAL_DATA.gradeProbabilities), rollCosts: s.rollCosts || deepClone(INITIAL_DATA.rollCosts), breakthroughCosts: s.breakthroughCosts || deepClone(INITIAL_DATA.breakthroughCosts), bmReferences: s.bmReferences || deepClone(INITIAL_DATA.bmReferences), slotTargets: s.slotTargets || deepClone(PRESETS['현실종결']) }; }
+function download(name, text, type) { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([text], {type})); a.download = name; a.click(); URL.revokeObjectURL(a.href); }
+function exportCsv() {
+  const head = ['tier','tierName','optionId','optionName','active','probability','type','D','C','B','A','tripleMax','ceiling','ceilingRef','warning'];
+  const rows = [head];
+  state.tiers.forEach(t => t.options.forEach(o => rows.push([t.tier,t.name,o.id,o.name,o.active,o.probability,o.type,gradeToText(o.grades.D,o.type),gradeToText(o.grades.C,o.type),gradeToText(o.grades.B,o.type),gradeToText(o.grades.A,o.type),tripleToText(calcTripleMax(o),o.type),ceilingToText(o.ceiling,o.type),o.ceiling?.ref || '',(validation.optionIssues.get(o.id)||[]).join('|')])));
+  const csv = rows.map(r => r.map(v => `"${String(v ?? '').replace(/"/g,'""')}"`).join(',')).join('\n');
+  download('baekryong-options.csv', '\ufeff' + csv, 'text/csv;charset=utf-8');
+}
+function exportJson() { download('baekryong-state.json', JSON.stringify(state, null, 2), 'application/json'); }
+function importJson(file) {
+  const reader = new FileReader();
+  reader.onload = () => { try { const parsed = JSON.parse(reader.result); if (!parsed.tiers || !parsed.gradeProbabilities || !parsed.rollCosts) throw new Error('invalid'); state.lastJsonBackup = deepClone(state); state = normalizeState(parsed); render(); toast('JSON 불러오기 완료'); } catch(e) { toast('JSON 불러오기 실패: 구조를 확인하세요', 'danger'); } };
+  reader.readAsText(file);
+}
+function shareUrl() {
+  try {
+    const hash = btoa(unescape(encodeURIComponent(JSON.stringify(state))));
+    const url = `${location.origin}${location.pathname}#${hash}`;
+    navigator.clipboard?.writeText(url);
+    if (url.length > 1800) toast('공유 URL 복사 완료 · 공유 URL이 너무 길 수 있음', 'warn'); else toast('공유 URL 복사 완료');
+  } catch(e) { toast('공유 URL 생성 실패', 'danger'); }
+}
+function loadHash() {
+  if (!location.hash.slice(1)) return false;
+  try { state = normalizeState(JSON.parse(decodeURIComponent(escape(atob(location.hash.slice(1)))))); return true; }
+  catch(e) { toast('공유 URL 복원 실패', 'danger'); return false; }
+}
+function maxOptionId() { return Math.max(0, ...state.tiers.flatMap(t => t.options.map(o => o.id || 0))); }
+function addOption(tierNo) {
+  const t = getTier(tierNo); if (!t) return;
+  t.options.push({ id: maxOptionId()+1, name: '', type: 'fixed', active: true, probability: 0, grades: { D:{value:0}, C:{value:0}, B:{value:0}, A:{value:0} }, ceiling: { value:null, ref:'확인 필요' } });
+  render();
+}
+function deleteOption(ti, oi) { if (confirm('옵션을 삭제하시겠습니까?')) { state.tiers[ti].options.splice(oi,1); render(); } }
+function moveOption(ti, oi, newTier) { const [o] = state.tiers[ti].options.splice(oi,1); getTier(newTier).options.push(o); render(); }
+
+window.addEventListener('input', e => {
+  const el = e.target;
+  if (el.matches('[data-path]') && el.dataset.type !== 'checkbox') handleInput(el);
+  if (el.dataset.action === 'grade-edit') {
+    const o = state.tiers[el.dataset.tierIndex].options[el.dataset.optionIndex];
+    const parsed = parseGrade(el.value, o.type);
+    if (parsed.value) o.grades[el.dataset.grade] = parsed.value;
+    debounceRender();
+  }
+  if (el.dataset.action === 'ceiling-edit') {
+    const o = state.tiers[el.dataset.tierIndex].options[el.dataset.optionIndex];
+    const parsed = parseCeiling(el.value, o.type, o.ceiling?.ref);
+    if (parsed.value) o.ceiling = parsed.value;
+    debounceRender();
+  }
+});
+window.addEventListener('change', e => {
+  const el = e.target;
+  if (el.matches('[data-path]')) handleInput(el);
+  if (el.dataset.action === 'move-option') moveOption(Number(el.dataset.tierIndex), Number(el.dataset.optionIndex), Number(el.value));
+  if (el.dataset.action === 'import-json' && el.files[0]) importJson(el.files[0]);
+});
+window.addEventListener('click', e => {
+  const b = e.target.closest('[data-action]'); if (!b) return;
+  const a = b.dataset.action;
+  if (a === 'select-save-slot') { state.currentSaveSlot = b.dataset.slot; render(); }
+  if (a === 'preset') { state.selectedPreset = b.dataset.preset; if (PRESETS[b.dataset.preset]) state.slotTargets = deepClone(PRESETS[b.dataset.preset]); render(); }
+  if (a === 'toggle-tier') { state.collapsedTiers[b.dataset.tier] = !state.collapsedTiers[b.dataset.tier]; render(); }
+  if (a === 'add-option') addOption(Number(b.dataset.tier));
+  if (a === 'delete-option') deleteOption(Number(b.dataset.tierIndex), Number(b.dataset.optionIndex));
+  if (a === 'simulate') { const p = validation.expectedRows[0]?.p || 0; toast('시뮬레이션 실행 중...'); setTimeout(() => { state.simulation = simulate(p); render(); toast('시뮬레이션 완료'); }, 20); }
+  if (a === 'save-slot') saveToSlot();
+  if (a === 'load-slot') loadFromSlot();
+  if (a === 'export-csv') exportCsv();
+  if (a === 'export-json') exportJson();
+  if (a === 'share-url') shareUrl();
+});
+document.getElementById('resetBtn').addEventListener('click', () => { if (confirm('INITIAL_DATA 기준으로 완전 복원할까요?')) { state = defaultState(); history.replaceState(null, '', location.pathname); render(); } });
+
+(function init() {
+  if (!loadHash()) {
+    try { const raw = localStorage.getItem(`${STORAGE_PREFIX}:last`); state = raw ? normalizeState(JSON.parse(raw)) : defaultState(); }
+    catch(e) { state = defaultState(); }
+  }
+  render();
+})();
+</script>
+</body>
+</html>
