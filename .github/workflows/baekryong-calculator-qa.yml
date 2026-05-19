@@ -49,12 +49,21 @@ jobs:
         run: |
           if [ -f server.pid ]; then kill $(cat server.pid) || true; fi
 
-      - name: 테스트 결과 업로드
+      - name: QA 리포트 아티팩트 업로드
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-report
+          name: baekryong-guardian-qa-report
           path: |
             playwright-report
             test-results
+            server.log
           if-no-files-found: ignore
+
+      - name: 최종 HTML 아티팩트 업로드(테스트 성공 시에만)
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: baekryong-guardian-bm-calculator-final
+          path: baekryong_guardian_bm_calculator_codex_final.html
+          if-no-files-found: error
