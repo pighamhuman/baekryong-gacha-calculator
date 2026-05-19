@@ -85,7 +85,9 @@ test.describe('백룡 수호석 BM 계산기 QA', () => {
         throw new Error(`[실패] 예산 증가 후 완성 확률이 감소했습니다: before=${prob1Text}, after=${prob2Text}`);
       }
 
-      await page.locator('#tbody tr', { hasText: '파괴' }).click();
+      const destroyNameCell = page.locator('#tbody tr', { hasText: '파괴' }).locator('td').nth(2);
+      await destroyNameCell.click();
+      await expect(page.locator('#edit')).toContainText('선택 옵션 정보: 파괴');
       const maxInput = page.locator('#edit label:has-text("Max") input');
       await maxInput.evaluate((el) => {
         el.value = '20';
