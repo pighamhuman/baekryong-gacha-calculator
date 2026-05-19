@@ -69,7 +69,7 @@ const onOpts=state.options.filter(o=>o.on);
 $('#slots').innerHTML=state.slotTargets.map((s,i)=>{const sp=slotP(a,s); return `<div class="card slot t${sp.tier}"><h4>슬롯 ${i+1}</h4><label>옵션 선택<select onchange="state.slotTargets[${i}].optionId=this.value;render()">${state.options.map(o=>`<option value="${o.id}" ${o.id===s.optionId?'selected':''}>${o.name}${o.on?'':'(OFF)'}</option>`).join('')}</select></label><label>목표 기준<select onchange="state.slotTargets[${i}].mode=this.value;render()"><option value="appear" ${s.mode==='appear'?'selected':''}>옵션 등장</option><option value="target" ${s.mode==='target'?'selected':''}>목표 기준값 이상</option><option value="max" ${s.mode==='max'?'selected':''}>최대치</option></select></label><label><input type="checkbox" ${s.locked?'checked':''} onchange="state.slotTargets[${i}].locked=this.checked;render()"> 잠금</label><div>성공 확률: <b>${fmtP(sp.p)}</b></div></div>`}).join('');
 const ps=state.slotTargets.map(s=>slotP(a,s).p); const locked=state.slotTargets.map(s=>s.locked); const rem=locked.filter(v=>!v).length; $('#budget').value=state.budgetAmount;
 $('#budget').onchange=e=>{state.budgetAmount=Math.max(0,Number(e.target.value)||0); render()};
-$('#curCost').textContent=rem===0?'리롤 불가':`${rem===3?state.rerollCosts[0]:rem===2?state.rerollCosts[1]:state.rerollCosts[2].toLocaleString()}원`;
+$('#curCost').textContent=rem===0?'리롤 불가':`${(rem===3?state.rerollCosts[0]:rem===2?state.rerollCosts[1]:state.rerollCosts[2]).toLocaleString()}원`;
 $('#remain').textContent=rem+'개';
 let exp=NaN,bp={error:"계산 차단"};
 if(!disabled && state.slotTargets.every(s=>{const o=state.options.find(x=>x.id===s.optionId);return o&&o.on;})){exp=rem===0?0:expectedCost(ps,locked); bp=budgetProb(ps,locked,state.budgetAmount);} else a.errs.push("3슬롯 계산 차단");
