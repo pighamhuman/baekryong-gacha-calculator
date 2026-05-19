@@ -87,7 +87,10 @@ test.describe('백룡 수호석 BM 계산기 QA', () => {
 
       await page.locator('#tbody tr', { hasText: '파괴' }).click();
       const before = await page.locator('#tbody tr', { hasText: '파괴' }).innerText();
-      await page.locator('#edit label:has-text("Max") input').fill('20');
+      const maxInput = page.locator('#edit label:has-text("Max") input');
+      await maxInput.fill('20');
+      await maxInput.blur();
+      await expect(page.locator('#tbody tr', { hasText: '파괴' })).toContainText('1~20');
       const after = await page.locator('#tbody tr', { hasText: '파괴' }).innerText();
       if (before === after) throw new Error('[실패] 파괴 Max 변경이 표에 반영되지 않았습니다.');
 
