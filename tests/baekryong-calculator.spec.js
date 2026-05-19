@@ -63,9 +63,17 @@ test.describe('백룡 수호석 BM 계산기 QA', () => {
     });
 
     await test.step('예산/편집/ON-OFF/비용 변경 연동 검증', async () => {
-      await page.locator('#budget').fill('1000000');
+      // 예산 변화가 화면 반올림으로 숨지지 않도록 확률이 비교적 큰 조건으로 전환 후 검증
+      await page.locator('#slots .slot').nth(0).locator('select').nth(0).selectOption({ label: '힘' });
+      await page.locator('#slots .slot').nth(0).locator('select').nth(1).selectOption('appear');
+      await page.locator('#slots .slot').nth(1).locator('select').nth(0).selectOption({ label: '지능' });
+      await page.locator('#slots .slot').nth(1).locator('select').nth(1).selectOption('appear');
+      await page.locator('#slots .slot').nth(2).locator('select').nth(0).selectOption({ label: '인내' });
+      await page.locator('#slots .slot').nth(2).locator('select').nth(1).selectOption('appear');
+
+      await page.locator('#budget').fill('100000');
       const prob1 = await readNumberText(page, '#doneProb');
-      await page.locator('#budget').fill('5000000');
+      await page.locator('#budget').fill('1000000');
       const prob2 = await readNumberText(page, '#doneProb');
       if (prob1 === prob2) throw new Error(`[실패] 예산 변경 전후 완성 확률이 동일합니다: ${prob1}`);
 
