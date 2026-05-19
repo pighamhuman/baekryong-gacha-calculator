@@ -1,0 +1,71 @@
+name: 백룡 수호석 계산기 QA
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  qa:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 체크아웃
+        uses: actions/checkout@v4
+
+      - name: Node.js 설정
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: 의존성 설치(package-lock 감지)
+        run: |
+          set -euxo pipefail
+          if [ -f package-lock.json ]; then
+            echo "[정보] package-lock.json 확인: npm ci 실행"
+            npm ci
+          else
+            echo "[정보] package-lock.json 없음: npm install 실행"
+            npm install
+          fi
+
+      - name: Playwright Chromium 설치
+        run: npx playwright install --with-deps chromium
+
+      - name: 로컬 서버 실행
+        run: |
+          python3 -m http.server 4173 > server.log 2>&1 &
+          echo $! > server.pid
+          sleep 2
+
+      - name: Playwright 테스트 실행(실패 시 step에서 즉시 중단)
+        run: npx playwright test
+
+      - name: 실패 시 로그 출력
+        if: failure()
+        run: |
+          echo '=== server.log ==='
+          cat server.log || true
+
+      - name: 서버 정리
+        if: always()
+        run: |
+          if [ -f server.pid ]; then kill $(cat server.pid) || true; fi
+
+      - name: QA 리포트 아티팩트 업로드
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: baekryong-guardian-qa-report
+          path: |
+            playwright-report
+            test-results
+            server.log
+          if-no-files-found: ignore
+
+      - name: 최종 HTML 아티팩트 업로드(테스트 성공 시에만)
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: baekryong-guardian-bm-calculator-final
+          path: baekryong_guardian_bm_calculator_codex_final.html
+          if-no-files-found: error

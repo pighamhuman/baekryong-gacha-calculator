@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>백룡 수호석 BM 계산기</title>
+<style>
+:root{--bg:#f3f6fb;--card:#fff;--line:#d9e0ea;--txt:#1e2a38;--muted:#5f6b7a;--ok:#198754;--err:#dc3545;--t1:#b0883e;--t2:#c46f52;--t3:#4f7fa8;--t4:#6c7a89}
+*{box-sizing:border-box}body{margin:0;font-family:"Noto Sans KR",system-ui,sans-serif;background:var(--bg);color:var(--txt)}
+.wrap{max-width:1300px;margin:0 auto;padding:16px;display:grid;gap:12px}.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px}
+h1{margin:0 0 6px;font-size:24px}.sub{color:var(--muted);font-size:14px}.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.grow{flex:1}
+button,input,select,textarea{border:1px solid #bec9d8;border-radius:8px;padding:7px 8px;background:#fff;color:var(--txt);font-size:14px;max-width:100%}button{cursor:pointer}
+.grid{display:grid;gap:10px}.g4{grid-template-columns:repeat(4,minmax(0,1fr))}.g3{grid-template-columns:repeat(3,minmax(0,1fr))}.g2{grid-template-columns:repeat(2,minmax(0,1fr))}
+.badge{padding:4px 8px;border-radius:99px;font-size:12px;font-weight:700}.ok{background:#e8f7ef;color:var(--ok)}.err{background:#fdeceb;color:var(--err)}
+.slot,.summary{border-left:5px solid var(--t4)}.tier1{color:var(--t1)}.tier2{color:var(--t2)}.tier3{color:var(--t3)}.tier4{color:var(--t4)}
+.slot.t1,.summary.t1{border-left-color:var(--t1)}.slot.t2,.summary.t2{border-left-color:var(--t2)}.slot.t3,.summary.t3{border-left-color:var(--t3)}.slot.t4,.summary.t4{border-left-color:var(--t4)}
+table{width:100%;border-collapse:collapse;font-size:13px}th,td{border-bottom:1px solid #e7edf5;padding:6px;text-align:left;white-space:nowrap}th.num,td.num{text-align:right}
+tr[data-tier="1"] td:first-child{border-left:4px solid var(--t1)} tr[data-tier="2"] td:first-child{border-left:4px solid var(--t2)} tr[data-tier="3"] td:first-child{border-left:4px solid var(--t3)} tr[data-tier="4"] td:first-child{border-left:4px solid var(--t4)}
+.scroll{overflow:auto}.muted{color:var(--muted)} details{margin-top:6px}.errlist{margin:0;padding-left:16px;color:var(--err)}
+@media (max-width:960px){.g4{grid-template-columns:repeat(2,minmax(0,1fr))}.g3{grid-template-columns:1fr}.g2{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <section class="card">
+    <h1>백룡 수호석 BM 계산기</h1><div class="sub">3슬롯 목표 조합 · 잠금 비용 · 확률/기대비용 검증용</div>
+    <div class="row" style="margin-top:8px"><button id="btnJsonOut">JSON 내보내기</button><button id="btnJsonIn">JSON 불러오기</button><button id="btnCsv">CSV 내보내기</button><button id="btnReset">초기화</button><input id="jsonFile" type="file" accept=".json" hidden></div>
+  </section>
+  <section class="card" id="badge"></section>
+  <section class="card"><div class="grid g2"><div><h3>티어 총량(%)</h3><div id="tierInputs" class="grid g2"></div></div><div><h3>리롤 비용(원)</h3><div id="costInputs" class="grid g2"></div><div class="muted" style="margin-top:6px">잠금 3개: 리롤 불가</div></div></div></section>
+  <section class="card"><h3>3슬롯 목표 검증기</h3><div id="slots" class="grid g3"></div><div class="grid g4" style="margin-top:8px"><label>사용 금액(원)<input id="budget" type="number" min="0" step="100"/></label><div>현재 리롤 비용: <b id="curCost"></b></div><div>남은 슬롯 수: <b id="remain"></b></div><div>완성 기대횟수: <b id="expRoll"></b></div><div>완성 기대비용: <b id="expCost"></b></div><div>입력 금액 내 완성 확률: <b id="doneProb"></b></div><div>미완성 확률: <b id="undoneProb"></b></div><div>현실성 코멘트: <b id="comment"></b></div></div></section>
+  <section class="card summary" id="summary"><h3>선택 옵션 요약</h3><div id="summaryBody"></div></section>
+  <section class="card"><h3>옵션 확률표</h3><div class="scroll"><table><thead><tr><th>ON</th><th>티어</th><th>옵션명</th><th class="num">수치 범위</th><th class="num">전체 수치 개수</th><th class="num">3중복 최대</th><th class="num">옵션 등장 확률</th><th>상태</th></tr></thead><tbody id="tbody"></tbody></table></div></section>
+  <section class="card"><h3>옵션 상세 편집 패널</h3><div id="edit"></div></section>
+</div>
+<script>
+const removedNames=["행운","공격속도","공속","중독강화","중독회복","민첩","정확","추가대미지","마법회피%","최대HP(하위)","최대MP(하위)"];
+const defaults={tierTotals:{1:0.66,2:0.48,3:0.78,4:98.08},rerollCosts:{0:1100,1:1500,2:1900},budgetAmount:100000,slotTargets:[{optionId:"o5",mode:"target",locked:false},{optionId:"o6",mode:"target",locked:false},{optionId:"o7",mode:"target",locked:false}],options:[
+["o1",1,"최종피해증가%","공격",0.10,1.0,1.5,0.1,1.5,"추후검토"],["o2",1,"최대파마도%","공격",0.10,1,3,1,3,"추후검토"],["o3",1,"경험치증가%","성장",0.40,1,20,1,15,"검토"],["o4",1,"드롭율증가%","성장",0.40,1,10,1,8,"검토"],["o5",1,"파괴","직접 파마도",1.00,1,15,1,12,"정상"],["o6",1,"마력","직접 파마도",1.00,1,15,1,12,"정상"],["o7",1,"도력","직접 파마도",1.00,1,15,1,12,"정상"],
+["o8",2,"중독저항","고가치",0.40,1,3,1,3,"확인필요"],["o9",2,"백룡담촌 피해증가%","고가치",0.40,1,20,1,15,"확인필요"],["o10",2,"치명타확률%","고가치",0.40,0.1,0.7,0.1,0.6,"예외검토"],["o11",2,"치명타피해%","고가치",0.40,1,7,1,6,"검토"],["o12",2,"공력%","고가치",1.60,1,15,1,12,"확인필요"],["o13",2,"공력피해감소%","고가치",1.60,1,10,1,8,"정상"],
+["o14",3,"백룡담촌 피해감소%","범용",0.40,1,8,1,6,"확인필요"],["o15",3,"방어","범용",0.40,1,9,1,7,"정상"],["o16",3,"마법방어","범용",0.40,1,9,1,7,"정상"],["o17",3,"공력","범용",1.00,1,15,1,12,"정상"],["o18",3,"체력회복%","범용",1.60,1,30,1,23,"검토"],["o19",3,"마력회복%","범용",1.60,1,30,1,23,"검토"],
+["o20",4,"힘","광",0.40,1,100,1,75,"검토"],["o21",4,"지능","광",0.40,1,100,1,75,"검토"],["o22",4,"인내","광",0.40,1,100,1,75,"검토"],["o23",4,"의지","광",0.40,1,100,1,75,"검토"],["o24",4,"최대HP","광",1.00,1,300,1,225,"검토"],["o25",4,"최대MP","광",1.00,1,300,1,225,"검토"],["o26",4,"착용무게","광",1.60,1,150,1,113,"검토"],["o27",4,"가방무게","광",1.60,1,300,1,225,"검토"],["o28",4,"양손무게","광",1.60,1,150,1,113,"검토"]].map(v=>({id:v[0],tier:v[1],name:v[2],category:v[3],weight:v[4],min:v[5],max:v[6],step:v[7],targetValue:v[8],status:v[9],note:"",on:true}))};
+let state=JSON.parse(JSON.stringify(defaults)); let selectedId=state.options[0].id;
+const $=s=>document.querySelector(s); const fmtP=n=>`${(n*100).toFixed(6).replace(/\.0+$/,'')}%`; const rn=n=>Math.round((n+Number.EPSILON)*1e12)/1e12;
+function countVals(min,max,step){return Math.floor(rn((max-min)/step)+1+1e-9)}
+function valCountToMax(o){return Math.floor(rn((o.max-o.targetValue)/o.step)+1+1e-9)}
+function analyze(){const errs=[]; const opts=state.options; if(opts.some(o=>removedNames.includes(o.name))) errs.push("삭제 대상 옵션이 포함됨");
+const tw={1:0,2:0,3:0,4:0}; const tprob={1:0,2:0,3:0,4:0}; const map={}; opts.forEach(o=>{if(o.on)tw[o.tier]+=Number(o.weight)});
+Object.values(state.tierTotals).forEach(v=>{if(!Number.isFinite(v))errs.push("티어 총량 NaN/Infinity")});
+if(Math.abs((state.tierTotals[1]+state.tierTotals[2]+state.tierTotals[3]+state.tierTotals[4])-100)>1e-8) errs.push("티어 총량 합계가 100% 아님");
+opts.forEach(o=>{if(o.min>o.max)errs.push(`${o.name} Min/Max 오류`);if(o.step<=0)errs.push(`${o.name} Step 오류`);if(o.targetValue<o.min||o.targetValue>o.max)errs.push(`${o.name} 목표 기준값 범위 오류`);if(o.tier===2&&(o.name==="방어"||o.name==="마법방어"))errs.push("2티어 방어/마법방어 금지");if((o.name==="방어"||o.name==="마법방어")&&o.tier!==3)errs.push("방어/마법방어는 3티어 전용"); const cnt=countVals(o.min,o.max,o.step); if(cnt<1)errs.push(`${o.name} 전체 수치 개수 오류`);});
+for(const t of [1,2,3,4]) if(tw[t]<=0) errs.push(`${t}티어 ON 가중치 합계 0 이하`);
+opts.forEach(o=>{const p=o.on&&tw[o.tier]>0?(state.tierTotals[o.tier]/100)*(o.weight/tw[o.tier]):0; const cnt=countVals(o.min,o.max,o.step); const up=valCountToMax(o); map[o.id]={appear:p,target:p*(up/cnt),max:p/cnt,count:cnt}; tprob[o.tier]+=p;});
+const total=Object.values(map).reduce((a,b)=>a+b.appear,0);
+if(Math.abs(total-1)>1e-8) errs.push("옵션 등장 확률 합계가 100% 아님"); for(const t of [1,2,3,4]) if(Math.abs(tprob[t]-state.tierTotals[t]/100)>1e-8) errs.push(`${t}티어 확률 합계 불일치`);
+if(Object.values(map).some(v=>!Number.isFinite(v.appear)||!Number.isFinite(v.target)||!Number.isFinite(v.max))) errs.push("확률 NaN/Infinity/undefined/null 오류");
+return {errs,map,total,tprob};}
+function slotP(a,slot){const o=state.options.find(x=>x.id===slot.optionId); if(!o||!o.on) return {p:0,tier:4,name:"선택 필요"}; const d=a.map[o.id]; return {p:slot.mode==="appear"?d.appear:slot.mode==="max"?d.max:d.target,tier:o.tier,name:o.name};}
+function expectedCost(ps,locked){const doneMask=locked.reduce((m,v,i)=>v?m|(1<<i):m,0),full=7,E=Array(8).fill(0); for(let mask=6;mask>=0;mask--){if((mask&doneMask)!==doneMask) continue; if(mask===full){E[mask]=0;continue;} let rem=0; for(let i=0;i<3;i++) if(!(mask&(1<<i))) rem++; let c=rem===3?state.rerollCosts[0]:rem===2?state.rerollCosts[1]:state.rerollCosts[2]; let p0=1,sum=0;
+for(let sub=1;sub<8;sub++){let ok=true,p=1,nm=mask; for(let i=0;i<3;i++){if(mask&(1<<i)) continue; const hit=!!(sub&(1<<i)); p*=hit?ps[i]:(1-ps[i]); if(hit) nm|=(1<<i);} for(let i=0;i<3;i++) if(mask&(1<<i)&&sub&(1<<i)) ok=false; if(!ok||nm===mask||p===0) continue; sum+=p*E[nm];}
+for(let i=0;i<3;i++) if(!(mask&(1<<i))) p0*=1-ps[i]; E[mask]=(c+sum)/(1-p0);} return E[doneMask];}
+function budgetProb(ps,locked,budget){const costs=[state.rerollCosts[0],state.rerollCosts[1],state.rerollCosts[2]].map(Math.round);const g=costs.reduce((a,b)=>{let x=a,y=b;while(y){[x,y]=[y,x%y]}return x}); if(g<=0||!Number.isFinite(g)) return {error:"리롤 비용 오류"}; const B=Math.floor(budget/g); if(B>50000) return {error:"정확 계산 한도 초과"}; const dp=Array.from({length:B+1},()=>Array(8).fill(0)); dp[0][locked.reduce((m,v,i)=>v?m|(1<<i):m,0)]=1;
+for(let b=0;b<=B;b++){for(let m=0;m<8;m++){const cur=dp[b][m]; if(!cur||m===7) continue; let rem=[0,1,2].filter(i=>!(m&(1<<i))); const cost=(rem.length===3?costs[0]:rem.length===2?costs[1]:costs[2])/g; if(b+cost>B) continue; for(let hit=0;hit<(1<<rem.length);hit++){let p=1,nm=m; rem.forEach((idx,j)=>{const h=(hit>>j)&1; p*=h?ps[idx]:(1-ps[idx]); if(h)nm|=(1<<idx)}); dp[b+cost][nm]+=cur*p;}}}
+let done=0; for(let b=0;b<=B;b++) done+=dp[b][7]; return {done:Math.min(1,done)};}
+function render(){const a=analyze(); const disabled=a.errs.length>0; const tb=$('#badge'); tb.innerHTML=`<div class="row"><span class="badge ${disabled?'err':'ok'}">${disabled?'오류':'정상'}</span><span>티어 총량 합계: ${(state.tierTotals[1]+state.tierTotals[2]+state.tierTotals[3]+state.tierTotals[4]).toFixed(4)}%</span><span>옵션 확률 합계: ${(a.total*100).toFixed(6)}%</span><span>오류 수: ${a.errs.length}</span></div>${a.errs.length?`<details open><summary>오류 상세</summary><ul class="errlist">${a.errs.map(e=>`<li>${e}</li>`).join('')}</ul></details>`:''}`;
+$('#tierInputs').innerHTML=[1,2,3,4].map(t=>`<label>${t}티어<input type="number" step="0.0001" value="${state.tierTotals[t]}" onchange="state.tierTotals[${t}]=Number(this.value);render()"></label>`).join('');
+$('#costInputs').innerHTML=[0,1,2].map(k=>`<label>잠금 ${k}개<input type="number" step="100" min="0" value="${state.rerollCosts[k]}" onchange="state.rerollCosts[${k}]=Number(this.value);render()"></label>`).join('');
+const onOpts=state.options.filter(o=>o.on);
+$('#slots').innerHTML=state.slotTargets.map((s,i)=>{const sp=slotP(a,s); return `<div class="card slot t${sp.tier}"><h4>슬롯 ${i+1}</h4><label>옵션 선택<select onchange="state.slotTargets[${i}].optionId=this.value;render()">${state.options.map(o=>`<option value="${o.id}" ${o.id===s.optionId?'selected':''}>${o.name}${o.on?'':'(OFF)'}</option>`).join('')}</select></label><label>목표 기준<select onchange="state.slotTargets[${i}].mode=this.value;render()"><option value="appear" ${s.mode==='appear'?'selected':''}>옵션 등장</option><option value="target" ${s.mode==='target'?'selected':''}>목표 기준값 이상</option><option value="max" ${s.mode==='max'?'selected':''}>최대치</option></select></label><label><input type="checkbox" ${s.locked?'checked':''} onchange="state.slotTargets[${i}].locked=this.checked;render()"> 잠금</label><div>성공 확률: <b>${fmtP(sp.p)}</b></div></div>`}).join('');
+const ps=state.slotTargets.map(s=>slotP(a,s).p); const locked=state.slotTargets.map(s=>s.locked); const rem=locked.filter(v=>!v).length; $('#budget').value=state.budgetAmount;
+$('#budget').onchange=e=>{state.budgetAmount=Math.max(0,Number(e.target.value)||0); render()};
+$('#curCost').textContent=rem===0?'리롤 불가':`${(rem===3?state.rerollCosts[0]:rem===2?state.rerollCosts[1]:state.rerollCosts[2]).toLocaleString()}원`;
+$('#remain').textContent=rem+'개';
+let exp=NaN,bp={error:"계산 차단"};
+if(!disabled && state.slotTargets.every(s=>{const o=state.options.find(x=>x.id===s.optionId);return o&&o.on;})){exp=rem===0?0:expectedCost(ps,locked); bp=budgetProb(ps,locked,state.budgetAmount);} else a.errs.push("3슬롯 계산 차단");
+$('#expCost').textContent=Number.isFinite(exp)?`${Math.round(exp).toLocaleString()}원`:'계산 차단'; $('#expRoll').textContent=Number.isFinite(exp)&&rem>0?(exp/(rem===3?state.rerollCosts[0]:rem===2?state.rerollCosts[1]:state.rerollCosts[2])).toFixed(4):'계산 차단';
+if(bp.error){$('#doneProb').textContent=bp.error;$('#undoneProb').textContent='-';} else {$('#doneProb').textContent=fmtP(bp.done);$('#undoneProb').textContent=fmtP(1-bp.done)}
+$('#comment').textContent=!Number.isFinite(exp)?'오류를 먼저 해결하세요':exp<50000?'현실적':exp<500000?'도전 가능':'고비용 구간';
+const so=state.options.find(o=>o.id===state.slotTargets[0].optionId)||state.options[0], sd=a.map[so.id]; $('#summary').className=`card summary t${so.tier}`;
+$('#summaryBody').innerHTML=`<div class="grid g3"><div>옵션 등장 확률: <b>${fmtP(sd.appear)}</b></div><div>목표 이상 확률: <b>${fmtP(sd.target)}</b></div><div>목표 기대비용: <b>${sd.target>0?Math.round(state.rerollCosts[2]/sd.target).toLocaleString()+'원':'계산 불가'}</b></div><div>최대치 확률: <b>${fmtP(sd.max)}</b></div><div>최대치 기대비용: <b>${sd.max>0?Math.round(state.rerollCosts[2]/sd.max).toLocaleString()+'원':'계산 불가'}</b></div><div>동일 최대치 3개 완성비용: <b>${sd.max>0?Math.round(expectedCost([sd.max,sd.max,sd.max],[false,false,false])).toLocaleString()+'원':'계산 불가'}</b></div></div>`;
+$('#tbody').innerHTML=state.options.map(o=>{const d=a.map[o.id],cnt=d.count; return `<tr data-tier="${o.tier}" onclick="selectedId='${o.id}';render()"><td><input type="checkbox" ${o.on?'checked':''} onchange="state.options.find(x=>x.id==='${o.id}').on=this.checked;render();event.stopPropagation()"></td><td><span class="badge tier${o.tier}">${o.tier}티어</span></td><td>${o.name}</td><td class="num">${o.min}~${o.max} (${o.step})</td><td class="num">${cnt}</td><td class="num">${Math.round(o.max*3*1000)/1000}</td><td class="num">${fmtP(d.appear)}</td><td>${o.status}</td></tr>`}).join('');
+const eo=state.options.find(o=>o.id===selectedId)||state.options[0]; $('#edit').innerHTML=`<div class="grid g4"><div>선택 옵션 정보: <b>${eo.name}</b></div><label>ON/OFF<select onchange="eo.on=this.value==='true';render()"><option value="true" ${eo.on?'selected':''}>ON</option><option value="false" ${!eo.on?'selected':''}>OFF</option></select></label><label>티어<input type="number" min="1" max="4" step="1" value="${eo.tier}" onchange="eo.tier=Number(this.value);render()"></label><label>가중치<input type="number" step="0.01" min="0" value="${eo.weight}" onchange="eo.weight=Number(this.value);render()"></label><label>Min<input type="number" step="0.1" value="${eo.min}" onchange="eo.min=Number(this.value);render()"></label><label>Max<input type="number" step="0.1" value="${eo.max}" onchange="eo.max=Number(this.value);render()"></label><label>Step<input type="number" step="0.1" value="${eo.step}" onchange="eo.step=Number(this.value);render()"></label><label>목표 기준값<input type="number" step="0.1" value="${eo.targetValue}" onchange="eo.targetValue=Number(this.value);render()"></label><label>상태<input value="${eo.status}" onchange="eo.status=this.value;render()"></label><label>비고<textarea onchange="eo.note=this.value;render()">${eo.note}</textarea></label></div>`;
+}
+function download(name,text,type){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type}));a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),500)}
+btnJsonOut.onclick=()=>download('baekryong_guardian_bm_calculator.json',JSON.stringify({version:'1.0.0',updatedAt:new Date().toISOString(),tierTotals:state.tierTotals,rerollCosts:state.rerollCosts,options:state.options,slotTargets:state.slotTargets,budgetAmount:state.budgetAmount},null,2),'application/json');
+btnJsonIn.onclick=()=>jsonFile.click(); jsonFile.onchange=e=>{const f=e.target.files[0]; if(!f)return; const r=new FileReader(); r.onload=()=>{try{const j=JSON.parse(r.result); const keys=['tierTotals','rerollCosts','options','slotTargets','budgetAmount']; const missing=keys.filter(k=>!(k in j)); if(missing.length) throw new Error('누락 항목: '+missing.join(',')); state={...state,...j}; render();}catch(err){alert('JSON 불러오기 오류: '+err.message)}}; r.readAsText(f,'utf-8');};
+btnCsv.onclick=()=>{const a=analyze(); const lines=['ON,티어,옵션명,수치 범위,전체 수치 개수,3중복 최대,옵션 등장 확률,상태']; state.options.forEach(o=>{const d=a.map[o.id]; lines.push([o.on?'ON':'OFF',o.tier,o.name,`"${o.min}~${o.max} (${o.step})"`,d.count,o.max*3, (d.appear*100).toFixed(8)+'%',o.status].join(','));}); download('baekryong_guardian_bm_calculator.csv',lines.join('\n'),'text/csv;charset=utf-8');};
+btnReset.onclick=()=>{if(confirm('초기화하시겠습니까?')){state=JSON.parse(JSON.stringify(defaults));render();}};
+render();
+</script>
+</body></html>
