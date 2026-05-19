@@ -16,16 +16,15 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: npm
 
       - name: 의존성 설치(package-lock 감지)
         run: |
           set -euxo pipefail
           if [ -f package-lock.json ]; then
-            echo "[정보] package-lock.json 감지: npm ci 실행"
+            echo "[정보] package-lock.json 확인: npm ci 실행"
             npm ci
           else
-            echo "[정보] package-lock.json 미존재: npm install 실행"
+            echo "[정보] package-lock.json 없음: npm install 실행"
             npm install
           fi
 
