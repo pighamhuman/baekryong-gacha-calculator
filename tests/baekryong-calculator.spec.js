@@ -72,10 +72,18 @@ test.describe('백룡 수호석 BM 계산기 QA', () => {
       await page.locator('#slots .slot').nth(2).locator('select').nth(1).selectOption('appear');
 
       await page.locator('#budget').fill('100000');
-      const prob1 = await readNumberText(page, '#doneProb');
+      const prob1Text = await readNumberText(page, '#doneProb');
       await page.locator('#budget').fill('1000000');
-      const prob2 = await readNumberText(page, '#doneProb');
-      if (prob1 === prob2) throw new Error(`[실패] 예산 변경 전후 완성 확률이 동일합니다: ${prob1}`);
+      const prob2Text = await readNumberText(page, '#doneProb');
+
+      const prob1 = Number(prob1Text.replace('%', ''));
+      const prob2 = Number(prob2Text.replace('%', ''));
+      if (!Number.isFinite(prob1) || !Number.isFinite(prob2)) {
+        throw new Error(`[실패] 예산 변경 확률 파싱 오류: before=${prob1Text}, after=${prob2Text}`);
+      }
+      if (prob2 < prob1) {
+        throw new Error(`[실패] 예산 증가 후 완성 확률이 감소했습니다: before=${prob1Text}, after=${prob2Text}`);
+      }
 
       await page.locator('#tbody tr', { hasText: '파괴' }).click();
       const before = await page.locator('#tbody tr', { hasText: '파괴' }).innerText();
