@@ -86,13 +86,13 @@ test.describe('백룡 수호석 BM 계산기 QA', () => {
       }
 
       await page.locator('#tbody tr', { hasText: '파괴' }).click();
-      const before = await page.locator('#tbody tr', { hasText: '파괴' }).innerText();
       const maxInput = page.locator('#edit label:has-text("Max") input');
       await maxInput.fill('20');
-      await maxInput.blur();
-      await expect(page.locator('#tbody tr', { hasText: '파괴' })).toContainText('1~20');
-      const after = await page.locator('#tbody tr', { hasText: '파괴' }).innerText();
-      if (before === after) throw new Error('[실패] 파괴 Max 변경이 표에 반영되지 않았습니다.');
+      await maxInput.press('Tab');
+      const destroyRow = page.locator('#tbody tr', { hasText: '파괴' });
+      await expect(destroyRow).toContainText('1~20');
+      await expect(destroyRow).toContainText('20');
+      await expect(destroyRow).toContainText('60');
 
       await page.locator('#edit label:has-text("목표 기준값") input').fill('15');
       await page.locator('#edit label:has-text("가중치") input').fill('2');
