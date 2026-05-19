@@ -19,7 +19,12 @@ jobs:
           cache: npm
 
       - name: 의존성 설치
-        run: npm install
+        run: |
+          if [ -f package-lock.json ]; then
+            npm ci
+          else
+            npm install
+          fi
 
       - name: Playwright Chromium 설치
         run: npx playwright install --with-deps chromium
