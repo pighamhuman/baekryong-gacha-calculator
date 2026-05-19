@@ -87,8 +87,10 @@ test.describe('백룡 수호석 BM 계산기 QA', () => {
 
       await page.locator('#tbody tr', { hasText: '파괴' }).click();
       const maxInput = page.locator('#edit label:has-text("Max") input');
-      await maxInput.fill('20');
-      await maxInput.press('Tab');
+      await maxInput.evaluate((el) => {
+        el.value = '20';
+        el.dispatchEvent(new Event('change', { bubbles: true }));
+      });
       const destroyRow = page.locator('#tbody tr', { hasText: '파괴' });
       await expect(destroyRow).toContainText('1~20');
       await expect(destroyRow).toContainText('20');
