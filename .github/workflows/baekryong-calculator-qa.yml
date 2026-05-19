@@ -18,11 +18,14 @@ jobs:
           node-version: '20'
           cache: npm
 
-      - name: 의존성 설치
+      - name: 의존성 설치(package-lock 감지)
         run: |
+          set -euxo pipefail
           if [ -f package-lock.json ]; then
+            echo "[정보] package-lock.json 감지: npm ci 실행"
             npm ci
           else
+            echo "[정보] package-lock.json 미존재: npm install 실행"
             npm install
           fi
 
@@ -35,7 +38,7 @@ jobs:
           echo $! > server.pid
           sleep 2
 
-      - name: Playwright 테스트 실행
+      - name: Playwright 테스트 실행(실패 시 step에서 즉시 중단)
         run: npx playwright test
 
       - name: 실패 시 로그 출력
