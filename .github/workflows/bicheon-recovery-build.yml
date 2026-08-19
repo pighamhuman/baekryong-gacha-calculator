@@ -2,6 +2,8 @@ name: Bicheon Recovery APK
 on:
   push:
     branches: [bicheon-recovery-build]
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 permissions:
   contents: read
