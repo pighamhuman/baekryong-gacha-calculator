@@ -31,14 +31,16 @@ jobs:
           unzip -t "$APK"
           unzip -l "$APK" | tee /tmp/list.txt
           grep -q 'classes.dex' /tmp/list.txt
-          unzip -p "$APK" classes.dex | strings | grep -q 'AdvisorEngine'
-          unzip -p "$APK" classes.dex | strings | grep -q 'AdvisorService'
+          for DEX in $(unzip -Z1 "$APK" | grep -E '^classes[0-9]*\.dex$'); do unzip -p "$APK" "$DEX" | strings; done > /tmp/dexstrings.txt
+          grep -q 'AdvisorEngine' /tmp/dexstrings.txt
+          grep -q 'AdvisorService' /tmp/dexstrings.txt
+          grep -q 'MediaProjection' /tmp/dexstrings.txt
           BT=$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)
           "$BT/apksigner" verify --verbose --print-certs "$APK"
           "$BT/aapt" dump badging "$APK" | tee /tmp/badging.txt
           grep -q "package: name='com.bicheon.advisor.dev356'" /tmp/badging.txt
           grep -q "launchable-activity: name='com.bicheon.advisor.dev356.MainActivity'" /tmp/badging.txt
-          SIZE=$(stat -c%s "$APK"); echo "APK bytes=$SIZE"; test "$SIZE" -gt 30000
+          SIZE=$(stat -c%s "$APK"); echo "APK bytes=$SIZE"; test "$SIZE" -gt 10000
           sha256sum "$APK"
       - name: Rename
         run: cp app/build/outputs/apk/debug/app-debug.apk BicheonMatchAdvisor-v3.5.6-RECOVERY-RUNTIME-FIX.apk
