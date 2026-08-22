@@ -1,11 +1,14 @@
 package com.bicheon.qa;
 
 import android.app.Activity;
-import android.content.pm.ApplicationInfo;
 import android.os.Bundle;
 import android.util.Log;
 import android.widget.TextView;
 
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -17,11 +20,10 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
-import dalvik.system.PathClassLoader;
+import dalvik.system.DexClassLoader;
 
 public final class MainActivity extends Activity {
     private static final String TAG = "BICHEON_QA";
-    private static final String TARGET_PACKAGE = "com.bicheon.advisor.dev380";
     private static final int PER_CALL_TIMEOUT_SECONDS = 25;
 
     @Override
@@ -40,10 +42,22 @@ public final class MainActivity extends Activity {
     private void runQa() {
         ExecutorService executor = Executors.newSingleThreadExecutor();
         try {
-            ApplicationInfo info = getPackageManager().getApplicationInfo(TARGET_PACKAGE, 0);
-            Log.i(TAG, "TARGET sourceDir=" + info.sourceDir + " versionCode=" + info.longVersionCode);
+            File jarFile = new File(getCodeCacheDir(), "target.jar");
+            try (InputStream input = getAssets().open("target.jar");
+                 OutputStream output = new FileOutputStream(jarFile, false)) {
+                byte[] buffer = new byte[64 * 1024];
+                int count;
+                while ((count = input.read(buffer)) != -1) {
+                    output.write(buffer, 0, count);
+                }
+            }
+            Log.i(TAG, "TARGET asset=" + jarFile.getAbsolutePath() + " bytes=" + jarFile.length());
 
-            ClassLoader loader = new PathClassLoader(info.sourceDir, getClassLoader());
+            ClassLoader loader = new DexClassLoader(
+                    jarFile.getAbsolutePath(),
+                    getCodeCacheDir().getAbsolutePath(),
+                    null,
+                    getClassLoader());
             Class<?> solverClass = Class.forName("com.bicheon.advisor.Solver", true, loader);
             Method choose = solverClass.getDeclaredMethod(
                     "choose", int[][].class, int[].class, int.class, int.class);
@@ -121,7 +135,7 @@ public final class MainActivity extends Activity {
             Log.e(TAG, "FAIL " + t.getClass().getName() + ": " + t.getMessage(), t);
         } finally {
             executor.shutdownNow();
-            runOnUiThread(() -> finishAndRemoveTask());
+            runOnUiThread(this::finishAndRemoveTask);
         }
     }
 
