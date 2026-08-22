@@ -43,6 +43,9 @@ public final class MainActivity extends Activity {
         ExecutorService executor = Executors.newSingleThreadExecutor();
         try {
             File jarFile = new File(getCodeCacheDir(), "target.jar");
+            if (jarFile.exists() && !jarFile.delete()) {
+                throw new IllegalStateException("Unable to replace stale target.jar");
+            }
             try (InputStream input = getAssets().open("target.jar");
                  OutputStream output = new FileOutputStream(jarFile, false)) {
                 byte[] buffer = new byte[64 * 1024];
@@ -50,6 +53,9 @@ public final class MainActivity extends Activity {
                 while ((count = input.read(buffer)) != -1) {
                     output.write(buffer, 0, count);
                 }
+            }
+            if (!jarFile.setReadOnly()) {
+                throw new IllegalStateException("Unable to mark target.jar read-only");
             }
             Log.i(TAG, "TARGET asset=" + jarFile.getAbsolutePath() + " bytes=" + jarFile.length());
 
