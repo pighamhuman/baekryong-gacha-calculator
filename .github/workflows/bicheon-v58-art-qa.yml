@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - qa/bicheon-v58-art-20260822
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
 
 permissions:
